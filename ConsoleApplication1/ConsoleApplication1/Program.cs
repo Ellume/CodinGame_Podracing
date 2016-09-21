@@ -63,7 +63,14 @@ class Player
             {
                 string coords = pods[i].NextCoords();
                 string thrust = pods[i].Thrust();
-                Console.WriteLine(coords + " " + thrust);
+                if (pods[i].Boost())
+                {
+                    Console.WriteLine(coords + " BOOST");
+                }
+                else
+                {
+                    Console.WriteLine(coords + " " + thrust);
+                }
             }
 
 
@@ -194,7 +201,7 @@ class Pod
         currentY = newY;
         currentVX = newVX;
         currentVY = newVY;
-        currentAngle = newAngle;
+        currentAngle = newAngle*Math.PI/180;
         currentCheckpointX = newCheckpointX;
         currentCheckpointY = newCheckpointY;
 
@@ -209,11 +216,11 @@ class Pod
     // Thrust calculation.
     public string Thrust()
     {
-        double cpAngle = Player.CheckpointAngleDiff(currentAngle*Math.PI/180, currentX, currentY, currentCheckpointX, currentCheckpointY) * 180.0 / Math.PI;
+        double cpAngle = Player.CheckpointAngleDiff(currentAngle, currentX, currentY, currentCheckpointX, currentCheckpointY) * 180.0 / Math.PI;
         double cpDist = Player.CheckpointDist(currentX, currentY, currentCheckpointX, currentCheckpointY);
         double thrust = 0;
 
-        Console.Error.WriteLine("cpAngle: " + cpAngle);
+        
 
         if (cpAngle > 120 || cpAngle < -120)
         {
@@ -237,6 +244,11 @@ class Pod
         }
 
 
+        Console.Error.WriteLine("cpAngle: " + (Math.Atan((currentCheckpointY - currentY) / (currentCheckpointX - currentX))));
+        Console.Error.WriteLine("CurrentAngle: " + currentAngle);
+        Console.Error.WriteLine("cpAngle: " + cpAngle);
+        Console.Error.WriteLine("thrust: " + thrust);
+
 
         return Convert.ToInt32(thrust).ToString();
     }
@@ -247,6 +259,20 @@ class Pod
         string output = Player.CheckpointOffset(500.0, currentAngle, currentVX, currentVY, currentX, currentY, currentCheckpointX, currentCheckpointY);
 
         return output;
+    }
+
+
+    // Check for boost
+    public bool Boost()
+    {
+        if (boost==1)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     // Get pod variables. 
