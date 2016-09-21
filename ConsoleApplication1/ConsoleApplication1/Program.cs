@@ -25,11 +25,11 @@ class Player
 
 
         // Coordinates for each checkpoint.
-        double[][] coordinates = new double[numCheckpoints][];
+        double[][] checkpoints = new double[numCheckpoints][];
         for (int i = 0; i < numCheckpoints; i++)
         {
             inputs = Console.ReadLine().Split(' ');
-            coordinates[i] = new double[2] { double.Parse(inputs[0]), double.Parse(inputs[1]) };
+            checkpoints[i] = new double[2] { double.Parse(inputs[0]), double.Parse(inputs[1]) };
             //Console.Error.WriteLine("(x,y): "+double.Parse(inputs[0])+", "+double.Parse(inputs[1]));
         }
 
@@ -48,13 +48,25 @@ class Player
             for (int i = 0; i < 4; i++)
             {
                 inputs = Console.ReadLine().Split(' ');
+                double cpX = checkpoints[i][0];
+                double cpY = checkpoints[i][1];
                 pods[i].Update(double.Parse(inputs[0]), double.Parse(inputs[1]), double.Parse(inputs[2]),
-                                double.Parse(inputs[3]), double.Parse(inputs[4]), int.Parse(inputs[5]));
+                                double.Parse(inputs[3]), double.Parse(inputs[4]), cpX, cpY);
             }
 
+            //Get updated values
+
+
+
             //GAME OUTPUT
-            Console.WriteLine("0 0 0");
-            Console.WriteLine("0 0 0");
+            for (int i = 0; i < 2; i++)
+            {
+                string coords = pods[i].NextCoords();
+                string thrust = pods[i].Thrust();
+                Console.WriteLine(coords + " " + thrust);
+            }
+
+
         }
     }
 
@@ -62,102 +74,192 @@ class Player
     /**
      *  The Pod.. The point of the game. It races and has variables. And stuff.
      **/
-    class Pod
+    
+
+
+    // Calculate the difference in angle between pod orientation and checkpoint
+    public static double CheckpointAngleDiff(double angle, double x, double y, double cpX, double cpY)
     {
 
-        public double currentX = 0;
-        public double currentY = 0;
-        public double currentVX = 0;
-        public double currentVY = 0;
-        public double currentAngle = 0;
-        public int currentCheckpointID = 0;
+        double angleTarget = Math.Atan((cpY-y) / (cpX-x));
+        double angleDiff = angle - angleTarget;
 
-        public double currentTargetX = 0;
-        public double currentTargetY = 0;
-
-        public double lastX = 0;
-        public double lastY = 0;
-        public double lastVX = 0;
-        public double lastVY = 0;
-        public double lastAngle = 0;
-        public int lastCheckpointID = 0;
-
-        public double lastTargetX = 0;
-        public double lastTargetY = 0;
-
-
-        // Init pod variables
-        public void Init()
+        // Keep angle between -180 and 180
+        if (angleDiff > Math.PI)
         {
-
-            currentX = 0;
-            currentY = 0;
-            currentVX = 0;
-            currentVY = 0;
-            currentAngle = 0;
-            currentCheckpointID = 1;
-
-            currentTargetX = 0;
-            currentTargetY = 0;
-
-            lastX = 0;
-            lastY = 0;
-            lastVX = 0;
-            lastVY = 0;
-            lastAngle = 0;
-            lastCheckpointID = 0;
-
-            lastTargetX = 0;
-            lastTargetY = 0;
+            angleDiff = angleDiff - Math.PI;
+        }
+        else if (angleDiff < -Math.PI)
+        {
+            angleDiff = angleDiff + Math.PI;
         }
 
-        // Read in new parameters and update turn data.
-        public void Update(double newX, double newY, double newVX,
-                            double newVY, double newAngle, int newCheckpointID)
+        return angleDiff;
+    }
+
+
+    // Calculate the distance to checkpoint
+    public static double CheckpointDist(double x, double y, double cpX, double cpY)
+    {
+
+        double cpDist = Math.Sqrt(Math.Pow(cpY - y,2) + Math.Pow(cpX - x,2));
+
+        return cpDist;
+    }
+
+
+
+    //TARGET CALCULATION
+    public static string CheckpointOffset(double offset, double angle, double vx, double vy,
+                                    double x, double y, double cpX, double cpY)
+    {
+        double cpDist = CheckpointDist(x, y, cpX, cpY);
+        double cpAngle = Math.Atan((cpY - y) / (cpX - x));
+        double angleDiff = CheckpointAngleDiff(angle, x, y, cpX, cpY);
+
+        double offsetAngle = Math.Atan(offset / cpDist);
+        double offsetDist = offset / Math.Sin(angleDiff);
+
+        double offsetX;
+        double offsetY;
+
+        if ((angleDiff > 0) && vx > 0 && (cpX - x) > 0 ||
+            (angleDiff > 0) && vx < 0 && (cpX - x) < 0 ||
+            (angleDiff < 0) && vx > 0 && (cpX - x) < 0 ||
+            (angleDiff < 0) && vx < 0 && (cpX - x) > 0)
         {
-            lastX = currentX;
-            lastY = currentY;
-            lastVX = currentVX;
-            lastVY = currentVY;
-            lastAngle = currentAngle;
-            lastCheckpointID = currentCheckpointID;
-
-            //lastTargetX=currentTargetX;
-            //lastTargetY=currentTargetY;
-
-            currentX = newX;
-            currentY = newY;
-            currentVX = newVX;
-            currentVY = newVY;
-            currentAngle = newAngle;
-            currentCheckpointID = newCheckpointID;
-
-            //currentTargetX;
-            //currentTargetY;
-
+            //Console.Error.WriteLine("FIRST CHECK");
+            angleDiff = -1.0 * angleDiff;
+        }
+        if (cpX - x >= 0)
+        {
+            offsetX = x + offsetDist * Math.Cos(cpAngle + angleDiff);
+            offsetY = y + offsetDist * Math.Sin(cpAngle + angleDiff);
+        }
+        else
+        {
+            offsetX = x - offsetDist * Math.Cos(cpAngle + angleDiff);
+            offsetY = y - offsetDist * Math.Sin(cpAngle + angleDiff);
         }
 
-        // Get pod variables. 
-        public string Debug()
-        {
-            string output = "Test";
-            return output;
-        }
+        return (string)((int)offsetX + " " + (int)offsetY);
+    }
+    
+
+
+}
+
+class Pod
+{
+    public int boost = 0;
+
+    public double currentX = 0;
+    public double currentY = 0;
+    public double currentVX = 0;
+    public double currentVY = 0;
+    public double currentAngle = 0;
+    public double currentCheckpointX = 0;
+    public double currentCheckpointY = 0;
+
+    public double currentTargetX = 0;
+    public double currentTargetY = 0;
+
+    public double lastX = 0;
+    public double lastY = 0;
+    public double lastVX = 0;
+    public double lastVY = 0;
+    public double lastAngle = 0;
+    public double lastCheckpointX = 0;
+    public double lastCheckpointY = 0;
+
+    public double lastTargetX = 0;
+    public double lastTargetY = 0;
+
+    // Read in new parameters and update turn data.
+    public void Update(double newX, double newY, double newVX,
+                        double newVY, double newAngle, double newCheckpointX, double newCheckpointY)
+    {
+        lastX = currentX;
+        lastY = currentY;
+        lastVX = currentVX;
+        lastVY = currentVY;
+        lastAngle = currentAngle;
+        lastCheckpointX = currentCheckpointX;
+        lastCheckpointY = currentCheckpointY;
+
+        //lastTargetX=currentTargetX;
+        //lastTargetY=currentTargetY;
+
+        currentX = newX;
+        currentY = newY;
+        currentVX = newVX;
+        currentVY = newVY;
+        currentAngle = newAngle;
+        currentCheckpointX = newCheckpointX;
+        currentCheckpointY = newCheckpointY;
+
+        //currentTargetX;
+        //currentTargetY;
+
     }
 
 
 
 
+    // Thrust calculation.
+    public string Thrust()
+    {
+        double cpAngle = Player.CheckpointAngleDiff(currentAngle*Math.PI/180, currentX, currentY, currentCheckpointX, currentCheckpointY) * 180.0 / Math.PI;
+        double cpDist = Player.CheckpointDist(currentX, currentY, currentCheckpointX, currentCheckpointY);
+        double thrust = 0;
+
+        Console.Error.WriteLine("cpAngle: " + cpAngle);
+
+        if (cpAngle > 120 || cpAngle < -120)
+        {
+            thrust = 0;
+        }
+        else if (cpAngle > 45 || cpAngle < -45)
+        {
+            thrust = ((-100.0 / (120 - 45)) * Math.Abs(cpAngle) + (100.0 * 120 / (120 - 45)));
+            //thrust = (Math.Pow(100.0 / thrustDiff, 2) * Math.Pow(Math.Abs(nextcpAngle) - thrustMinAngle, 2));
+        }
+        else
+        {
+            if (cpDist > 6000 && boost == 0 && (cpAngle > -20 && cpAngle < 20))
+            {
+                boost = 1;
+            }
+            else
+            {
+                thrust = 100;
+            }
+        }
 
 
 
+        return Convert.ToInt32(thrust).ToString();
+    }
+
+    // Next coords
+    public string NextCoords()
+    {
+        string output = Player.CheckpointOffset(500.0, currentAngle, currentVX, currentVY, currentX, currentY, currentCheckpointX, currentCheckpointY);
+
+        return output;
+    }
+
+    // Get pod variables. 
+    public string Debug()
+    {
+        string output = "Test";
+        return output;
+    }
 }
 
 
 
-
-
-/**
+/*
 class Player
 {
     static void Main(string[] args)
